@@ -16,15 +16,15 @@
 // }
 
 import { useState } from 'react';
- 
+
 export function TextEditor({ onUpdate }) {
   const [text, setText] = useState('');
- 
+
   const handleUpdate = () => {
     onUpdate(text);
     setText('');
   };
- 
+
   return (
     <div>
       <input

@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { cropVideo, scaleSource, rotateSource } from '../services/obsService';
- 
+
 export function VideoEditor() {
   const [cropL, setCropL] = useState(0);
   const [cropR, setCropR] = useState(0);
@@ -10,22 +10,22 @@ export function VideoEditor() {
   const [scaleX, setScaleX] = useState(1);
   const [scaleY, setScaleY] = useState(1);
   const [rotation, setRotation] = useState(0);
- 
+
   const handleCrop = async () => {
     await cropVideo('UploadedVideo', cropL, cropR, cropT, cropB);
     alert('✅ Video cropped');
   };
- 
+
   const handleScale = async () => {
     await scaleSource('UploadedVideo', scaleX, scaleY);
     alert('✅ Video scaled');
   };
- 
+
   const handleRotate = async () => {
     await rotateSource('UploadedVideo', rotation);
     alert('✅ Video rotated');
   };
- 
+
   return (
     <div style={{
       backgroundColor: '#1e293b',
@@ -34,7 +34,7 @@ export function VideoEditor() {
       border: '1px solid #334155'
     }}>
       <h3>✂️ Video Editor (Real-time)</h3>
- 
+
       {/* Crop Controls */}
       <div style={{ marginBottom: '20px' }}>
         <h4>Crop</h4>
@@ -69,7 +69,7 @@ export function VideoEditor() {
           Apply Crop
         </button>
       </div>
- 
+
       {/* Scale Controls */}
       <div style={{ marginBottom: '20px' }}>
         <h4>Scale</h4>
@@ -98,7 +98,7 @@ export function VideoEditor() {
           Apply Scale
         </button>
       </div>
- 
+
       {/* Rotation Controls */}
       <div>
         <h4>Rotate</h4>
@@ -120,6 +120,6 @@ export function VideoEditor() {
     </div>
   );
 }
- 
+
 
 export default VideoEditor;

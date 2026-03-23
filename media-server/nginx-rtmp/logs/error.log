@@ -1,2 +1,3 @@
 2026/03/17 17:04:02 [emerg] 10600#28312: unknown directive "rtmp" in C:\Users\webas\MAP\media-server\nginx-rtmp/conf/nginx.conf:8
 2026/03/17 17:13:17 [emerg] 23344#12844: unknown directive "rtmp" in C:\Users\webas\MAP\media-server\nginx-rtmp/conf/nginx.conf:8
+2026/03/21 17:10:37 [emerg] 5940#15856: unknown directive "rtmp" in C:\Users\webas\MAP\media-server\nginx-rtmp/conf/nginx.conf:7

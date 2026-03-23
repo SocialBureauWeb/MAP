@@ -96,6 +96,10 @@ const obsController = {
     // Get all scenes
     getScenes: async (req, res) => {
         try {
+            const { isConnected } = require('../connect/obs');
+            if (!isConnected()) {
+                return res.status(200).json([]); // Return empty array to keep frontend happy
+            }
             const obs = getOBS();
             const scenes = await obs.call('GetSceneList');
             res.json(scenes.scenes || []);
@@ -107,6 +111,10 @@ const obsController = {
     // Start stream
     startStream: async (req, res) => {
         try {
+            const { isConnected } = require('../connect/obs');
+            if (!isConnected()) {
+                return res.status(200).json({ error: 'OBS not connected', success: false });
+            }
             const obs = getOBS();
             const response = await obs.call('StartStream');
             res.json({ message: '✅ Stream started', response });
@@ -118,6 +126,10 @@ const obsController = {
     // Stop stream
     stopStream: async (req, res) => {
         try {
+            const { isConnected } = require('../connect/obs');
+            if (!isConnected()) {
+                return res.status(200).json({ error: 'OBS not connected', success: false });
+            }
             const obs = getOBS();
             const response = await obs.call('StopStream');
             res.json({ message: '⏹ Stream stopped', response });
@@ -133,6 +145,11 @@ const obsController = {
 
             if (!sceneName) {
                 return res.status(400).json({ error: 'Scene name is required' });
+            }
+
+            const { isConnected } = require('../connect/obs');
+            if (!isConnected()) {
+                return res.status(200).json({ error: 'OBS not connected', success: false });
             }
 
             const obs = getOBS();
@@ -152,6 +169,11 @@ const obsController = {
                 return res.status(400).json({ error: 'Text is required' });
             }
 
+            const { isConnected } = require('../connect/obs');
+            if (!isConnected()) {
+                return res.status(200).json({ error: 'OBS not connected', success: false });
+            }
+
             const obs = getOBS();
 
             await obs.call('SetInputSettings', {
@@ -168,9 +190,13 @@ const obsController = {
     // Get current stream status
     getStreamStatus: async (req, res) => {
         try {
+            const { isConnected } = require('../connect/obs');
+            if (!isConnected()) {
+                return res.status(200).json({ connected: false });
+            }
             const obs = getOBS();
             const status = await obs.call('GetStreamStatus');
-            res.json(status);
+            res.status(200).json({ ...status, connected: true });
         } catch (err) {
             res.status(500).json({ error: err.message });
         }

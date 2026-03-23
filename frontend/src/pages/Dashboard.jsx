@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   startStream,
   stopStream,
@@ -24,10 +24,65 @@ export default function Dashboard() {
   const [isLive, setIsLive] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
   const [error, setError] = useState('');
-  const [liveLink, setLiveLink] = useState('http://localhost:8080/hls/stream.m3u8');
+  const [liveLink, setLiveLink] = useState('http://localhost:5000/hls/stream.m3u8');
   const [liveStatus, setLiveStatus] = useState(null);
   const [uploadedVideoName, setUploadedVideoName] = useState('');
   const [uploadedLogoName, setUploadedLogoName] = useState('');
+  const [selectedSourceType, setSelectedSourceType] = useState('file');
+  const [localStream, setLocalStream] = useState(null);
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    let stream = null;
+    
+    async function startPreview() {
+      // Only start preview if source type matches and we're NOT live
+      if (selectedSourceType === 'camera' && !isLive) {
+        try {
+          // Request both video AND audio to ensure full device access
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: true, 
+            audio: true 
+          });
+
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            setLocalStream(stream);
+
+            // Manual play trigger with fail-safe error handling for transitions
+            const safePlay = async () => {
+              try {
+                if (videoRef.current && videoRef.current.srcObject) {
+                  await videoRef.current.play();
+                }
+              } catch (playErr) {
+                // Silently ignore interruption errors as they are common when switching sources
+                if (playErr.name !== 'AbortError' && !playErr.message.includes('interrupted')) {
+                  console.warn('Stage preview notice:', playErr.message);
+                }
+              }
+            };
+            safePlay();
+          }
+        } catch (err) {
+          console.warn('Media permission failed (Camera/Mic):', err.message);
+          // Only show error if we're actually trying to use the camera
+          if (selectedSourceType === 'camera') {
+             setError('Cannot access camera/mic: Please check your browser permissions.');
+          }
+        }
+      }
+    }
+
+    startPreview();
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [selectedSourceType, isLive]);
+
 
   useEffect(() => {
     loadScenes();
@@ -53,6 +108,10 @@ export default function Dashboard() {
       const response = await getLiveStatus();
       setIsLive(response.data.isLive || false);
       setLiveStatus(response.data);
+      // Auto-switch to live HLS preview if live
+      if (response.data.isLive) {
+        setLiveLink('http://localhost:5000/hls/stream.m3u8');
+      }
     } catch (err) {
       // ignore
     }
@@ -100,16 +159,27 @@ export default function Dashboard() {
   };
 
   // ===== YouTube LIVE =====
-  const handleStartLive = async (videoFile) => {
+  const handleStartLive = async (videoFile, durationHours, autoReconnect, loopCount, cameraName, micName, sourceType) => {
     try {
       setError('');
-      setUploadStatus('🚀 Starting YouTube live stream...');
-      const res = await startYouTubeLive(videoFile, uploadedLogoName || null);
-      setIsLive(true);
-      if (res.data.videoFile) {
-        setLiveLink(`http://localhost:5000/uploads/${res.data.videoFile}`);
+      
+      // CRITICAL: Stop the browser's local preview tracks before starting backend broadcast
+      // This releases the camera/mic resource so FFmpeg (backend) can open them.
+      if (sourceType === 'camera' && localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        setLocalStream(null);
+        // We don't null srcObject here synchronously to avoid interrupting the browser's internal playback state 
+        // aggressively, which can cause the "Removed from document" error popup.
       }
-      setUploadStatus('🔴 ' + res.data.message);
+
+      // Small delay to let the browser release hardware before calling FFmpeg
+      await new Promise(r => setTimeout(r, 500));
+
+      setUploadStatus(sourceType === 'camera' ? '🎥 Initializing live camera signal...' : '🚀 Initializing broadcast signal...');
+      const res = await startYouTubeLive(videoFile, uploadedLogoName || null, durationHours, autoReconnect, loopCount, cameraName, micName, sourceType);
+      setIsLive(true);
+      setLiveLink('http://localhost:5000/hls/stream.m3u8');
+      setUploadStatus('🔴 Signal: ' + res.data.message);
       setTimeout(() => setUploadStatus(''), 5000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to start live stream');
@@ -122,11 +192,21 @@ export default function Dashboard() {
       setError('');
       await stopYouTubeLive();
       setIsLive(false);
-      setUploadStatus('⏹ Stream stopped');
+      setUploadStatus('⏹ SIGNAL STOPPED');
       setTimeout(() => setUploadStatus(''), 3000);
     } catch (err) {
       setError('Failed to stop live stream: ' + (err.response?.data?.error || err.message));
     }
+  };
+
+  const handlePreviewSelection = (videoName) => {
+    if (!isLive) {
+      setLiveLink(`http://localhost:5000/uploads/${videoName}`);
+    }
+  };
+
+  const handleSourceTypeChange = (type) => {
+    setSelectedSourceType(type);
   };
 
   // ===== UPLOADS =====
@@ -142,12 +222,12 @@ export default function Dashboard() {
       setError('');
       const res = await uploadVideo(formData);
       setUploadedVideoName(res.data.filename);
-      setLiveLink(`http://localhost:5000/uploads/${res.data.filename}`); // show video locally
-      setUploadStatus(`✅ Video uploaded: ${res.data.filename}`);
-      // Hack to ask YouTubeLive to refresh if needed (can be handled elsewhere)
+      // Instant Preview
+      setLiveLink(`http://localhost:5000/uploads/${res.data.filename}`); 
+      setUploadStatus(`✅ Ready for broadcast: ${res.data.filename}`);
       setTimeout(() => setUploadStatus(''), 3000);
     } catch (err) {
-      setError('Failed to upload video: ' + (err.response?.data?.error || err.message));
+      setError('Upload failed: ' + (err.response?.data?.error || err.message));
       setUploadStatus('');
     }
   };
@@ -160,14 +240,14 @@ export default function Dashboard() {
     formData.append('logo', file);
 
     try {
-      setUploadStatus('🎨 Uploading logo...');
+      setUploadStatus('🎨 Processing logo...');
       setError('');
       const res = await uploadLogo(formData);
       setUploadedLogoName(res.data.filename);
-      setUploadStatus(`✅ Logo uploaded: ${res.data.filename}`);
+      setUploadStatus(`✅ Logo attached: ${res.data.filename}`);
       setTimeout(() => setUploadStatus(''), 3000);
     } catch (err) {
-      setError('Failed to upload logo: ' + (err.response?.data?.error || err.message));
+      setError('Logo upload failed: ' + (err.response?.data?.error || err.message));
       setUploadStatus('');
     }
   };
@@ -177,21 +257,22 @@ export default function Dashboard() {
       backgroundColor: '#0f172a',
       color: '#e2e8f0',
       minHeight: '100vh',
-      padding: '20px',
-      fontFamily: 'system-ui, -apple-system, sans-serif'
+      padding: '40px',
+      fontFamily: 'Inter, system-ui, sans-serif'
     }}>
       {/* Error Banner */}
       {error && (
         <div style={{
           backgroundColor: '#7f1d1d',
-          border: '1px solid #ef4444',
+          borderLeft: '4px solid #ef4444',
           color: '#fca5a5',
-          padding: '12px',
-          borderRadius: '8px',
+          padding: '16px',
+          borderRadius: '4px',
           marginBottom: '20px',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.4)'
         }}>
           <span>⚠️ {error}</span>
           <button onClick={() => setError('')} style={{
@@ -206,21 +287,22 @@ export default function Dashboard() {
         background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
-        fontSize: '32px',
-        fontWeight: 'bold'
-      }}>🎬 Stream Control Center</h1>
+        fontSize: '40px',
+        fontWeight: '900',
+        letterSpacing: '-1px'
+      }}>🎬 SIGNAL CONTROL CENTER</h1>
 
       {/* Upload Section */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '40px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '40px' }}>
         <div style={{
           backgroundColor: '#1e293b',
-          padding: '20px',
-          borderRadius: '12px',
+          padding: '24px',
+          borderRadius: '16px',
           border: '1px solid #334155'
         }}>
-          <h3 style={{ marginTop: 0 }}>📹 Upload Video</h3>
-          <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '10px' }}>
-            Upload a video to stream live on YouTube
+          <h3 style={{ marginTop: 0, color: '#f8fafc' }}>📹 Source Library</h3>
+          <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '15px' }}>
+            Upload high-quality video files to loop.
           </p>
           <input
             type="file"
@@ -228,30 +310,30 @@ export default function Dashboard() {
             onChange={onVideoFileChange}
             style={{
               width: '100%',
-              padding: '8px',
+              padding: '10px',
               backgroundColor: '#0f172a',
               border: '1px solid #334155',
-              borderRadius: '6px',
-              color: '#e2e8f0',
+              borderRadius: '8px',
+              color: '#94a3b8',
               boxSizing: 'border-box'
             }}
           />
           {uploadedVideoName && (
-            <p style={{ color: '#22c55e', fontSize: '12px', marginTop: '8px' }}>
-              ✅ Ready: {uploadedVideoName}
+            <p style={{ color: '#10b981', fontSize: '12px', marginTop: '10px', fontWeight: 'bold' }}>
+              ✓ LOADED: {uploadedVideoName}
             </p>
           )}
         </div>
 
         <div style={{
           backgroundColor: '#1e293b',
-          padding: '20px',
-          borderRadius: '12px',
+          padding: '24px',
+          borderRadius: '16px',
           border: '1px solid #334155'
         }}>
-          <h3 style={{ marginTop: 0 }}>🎨 Upload Logo</h3>
-          <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '10px' }}>
-            Logo will overlay on your live stream
+          <h3 style={{ marginTop: 0, color: '#f8fafc' }}>🎨 Overlay Graphics</h3>
+          <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '15px' }}>
+            Brand your stream with a logo (PNG/JPG).
           </p>
           <input
             type="file"
@@ -259,17 +341,17 @@ export default function Dashboard() {
             onChange={onLogoFileChange}
             style={{
               width: '100%',
-              padding: '8px',
+              padding: '10px',
               backgroundColor: '#0f172a',
               border: '1px solid #334155',
-              borderRadius: '6px',
-              color: '#e2e8f0',
+              borderRadius: '8px',
+              color: '#94a3b8',
               boxSizing: 'border-box'
             }}
           />
           {uploadedLogoName && (
-            <p style={{ color: '#22c55e', fontSize: '12px', marginTop: '8px' }}>
-              ✅ Ready: {uploadedLogoName}
+            <p style={{ color: '#10b981', fontSize: '12px', marginTop: '10px', fontWeight: 'bold' }}>
+              ✓ ATTACHED: {uploadedLogoName}
             </p>
           )}
         </div>
@@ -279,111 +361,116 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '40px' }}>
 
         {/* Left Sidebar */}
-        <div>
-          {/* YouTube Live — THIS IS THE MAIN FEATURE */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <YouTubeLive
             onStartLive={handleStartLive}
             onStopLive={handleStopLive}
+            onPreview={handlePreviewSelection}
+            onSourceTypeChange={handleSourceTypeChange}
             isLive={isLive}
             liveStatus={liveStatus}
             uploadedVideoName={uploadedVideoName}
           />
 
-          {/* OBS Controls (optional, works when OBS is connected) */}
           <div style={{
             backgroundColor: '#1e293b',
-            padding: '20px',
-            borderRadius: '12px',
-            border: '1px solid #334155',
-            marginTop: '20px'
+            padding: '24px',
+            borderRadius: '16px',
+            border: '1px solid #334155'
           }}>
-            <h3 style={{ marginTop: 0 }}>⚡ OBS Controls <span style={{ fontSize: '11px', color: '#64748b' }}>(optional)</span></h3>
+            <h3 style={{ marginTop: 0 }}>⚡ OBS INTERFACE</h3>
             <Controls onStart={handleStart} onStop={handleStop} />
           </div>
 
-          {/* Scene Selector */}
-          {scenes.length > 0 && (
-            <div style={{
-              backgroundColor: '#1e293b',
-              padding: '20px',
-              borderRadius: '12px',
-              border: '1px solid #334155',
-              marginTop: '20px'
-            }}>
-              <h3 style={{ marginTop: 0 }}>🎥 Scenes</h3>
-              <select
-                value={currentScene}
-                onChange={(e) => handleScene(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  backgroundColor: '#0f172a',
-                  border: '1px solid #334155',
-                  color: '#e2e8f0',
-                  borderRadius: '6px',
-                  boxSizing: 'border-box'
-                }}
-              >
-                {scenes.map(scene => (
-                  <option key={scene.sceneName} value={scene.sceneName}>
-                    {scene.sceneName}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Text Editor */}
           <div style={{
             backgroundColor: '#1e293b',
-            padding: '20px',
-            borderRadius: '12px',
-            border: '1px solid #334155',
-            marginTop: '20px'
+            padding: '24px',
+            borderRadius: '16px',
+            border: '1px solid #334155'
           }}>
-            <h3 style={{ marginTop: 0 }}>🔤 Overlay Text</h3>
+            <h3 style={{ marginTop: 0 }}>🔤 DYNAMIC GRAPHICS</h3>
             <TextEditor onUpdate={handleUpdateText} />
           </div>
         </div>
 
         {/* Right Side */}
         <div>
-          {/* Live Preview */}
+          {/* Monitoring Desk */}
           <div style={{
             backgroundColor: '#1e293b',
-            padding: '20px',
-            borderRadius: '12px',
+            padding: '24px',
+            borderRadius: '20px',
             border: '1px solid #334155',
-            marginBottom: '20px'
+            marginBottom: '24px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h3 style={{ margin: 0 }}>📺 Live Preview</h3>
-              <span style={{
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, fontWeight: '900', letterSpacing: '0.1em', fontSize: '14px', color: '#64748b' }}>
+                MONITORING DESK
+              </h3>
+              <div style={{
                 background: isLive ? '#dc2626' : '#334155',
-                padding: '6px 14px',
-                borderRadius: '20px',
-                fontSize: '12px',
-                fontWeight: 'bold'
+                color: 'white',
+                padding: '6px 16px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: '900',
+                letterSpacing: '0.05em'
               }}>
-                {isLive ? '🔴 LIVE' : 'OFFLINE'}
-              </span>
+                {isLive ? '🔴 LIVE ON-AIR' : '⚪ OFF AIR'}
+              </div>
             </div>
-            <Player url={liveLink} />
+            <div style={{ overflow: 'hidden', borderRadius: '12px', position: 'relative', height: '450px', backgroundColor: '#000', border: '1px solid #334155' }}>
+              
+              {/* STAGE PREVIEW (CAMERA) - Keep mounted to avoid AbortError */}
+              <div key="camera-stage-preview" style={{ display: (selectedSourceType === 'camera' && !isLive) ? 'block' : 'none', width: '100%', height: '100%' }}>
+                    <video 
+                      muted 
+                      playsInline 
+                      ref={videoRef} 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                    />
+                   <div style={{ position: 'absolute', top: '20px', left: '20px', background: 'rgba(0,0,0,0.6)', padding: '5px 10px', borderRadius: '4px', fontSize: '11px', color: '#94a3b8', zIndex: 10 }}>
+                     📹 STAGE PREVIEW
+                   </div>
+              </div>
+
+              {/* LIVE STREAM PLAYER - Keep mounted to avoid AbortError */}
+              <div key="live-stream-player" style={{ display: (isLive || selectedSourceType !== 'camera') ? 'block' : 'none', width: '100%', height: '100%' }}>
+                  <Player url={liveLink} />
+                  
+                  {isLive && !liveStatus?.ffmpegRunning && (
+                    <div style={{
+                      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                      backgroundColor: 'rgba(0,0,0,0.85)', color: '#ef4444',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      padding: '20px', textAlign: 'center', zIndex: 20
+                    }}>
+                      
+                      <button 
+                        onClick={() => handleStopLive()}
+                        style={{ background: '#334155', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', marginTop: '20px', fontWeight: 'bold' }}
+                      >RESET BROADCASTER</button>
+                    </div>
+                  )}
+              </div>
+            </div>
           </div>
 
-          {/* Video Editor */}
           <VideoEditor />
 
-          {/* Upload Status */}
+          {/* Toast Message */}
           {uploadStatus && (
             <div style={{
               marginTop: '20px',
-              backgroundColor: '#064e3b',
-              padding: '12px',
+              backgroundColor: '#065f46',
+              padding: '16px',
               borderRadius: '8px',
               color: '#34d399',
-              border: '1px solid #065f46',
-              textAlign: 'center'
+              fontWeight: 'bold',
+              border: '1px solid #059669',
+              textAlign: 'center',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
             }}>
               {uploadStatus}
             </div>

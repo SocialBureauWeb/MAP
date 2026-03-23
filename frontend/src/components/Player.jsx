@@ -1,7 +1,16 @@
 import ReactPlayer from 'react-player';
+import { useState, useEffect } from 'react';
 
 export default function Player({ url }) {
-  if (!url) {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    setShow(false);
+    const timer = setTimeout(() => setShow(true), 800);
+    return () => clearTimeout(timer);
+  }, [url]);
+
+  if (!url || !show) {
     return (
       <div style={{
         width: '100%',
@@ -14,7 +23,7 @@ export default function Player({ url }) {
         color: '#64748b',
         border: '1px solid #334155'
       }}>
-        Waiting for active stream...
+        Initializing stream player...
       </div>
     );
   }
@@ -29,7 +38,19 @@ export default function Player({ url }) {
         controls
         width='100%'
         height='450px'
-        stopOnUnmount={false}
+        stopOnUnmount={true}
+        onError={(e) => {
+          // Suppress AbortError which is harmless but noisy
+          if (e?.name !== 'AbortError') console.warn('Stream Player Notice:', e);
+        }}
+        config={{
+          file: {
+            attributes: {
+              onContextMenu: e => e.preventDefault(),
+              controlsList: 'nodownload'
+            }
+          }
+        }}
       />
     </div>
   );

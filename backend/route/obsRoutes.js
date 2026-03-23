@@ -28,5 +28,6 @@ obsRoutes.post('/live/start', liveStreamController.startLive);
 obsRoutes.post('/live/stop', liveStreamController.stopLive);
 obsRoutes.get('/live/status', liveStreamController.getStreamStatus);
 obsRoutes.get('/live/videos', liveStreamController.getUploadedVideos);
+obsRoutes.get('/live/devices', liveStreamController.listDevices);
 
 module.exports = obsRoutes;
