@@ -19,6 +19,13 @@ export const scaleSource = (sourceName, scaleX, scaleY, positionX, positionY) =>
 export const rotateSource = (sourceName, rotation) => 
     axios.post(`${BASE_URL}/obs/rotate`, { sourceName, rotation });
 
+// Overlay and Cutting Functions
+export const addOverlay = (sourceName, overlayFile) => 
+    axios.post(`${BASE_URL}/obs/overlay`, { sourceName, overlayFile });
+
+export const cutVideo = (sourceName, startTime, endTime) => 
+    axios.post(`${BASE_URL}/obs/cut`, { sourceName, startTime, endTime });
+
 // Media Uploads
 export const uploadVideo = (formData) => 
     axios.post(`${BASE_URL}/obs/upload-video`, formData, {
@@ -31,8 +38,8 @@ export const uploadLogo = (formData) =>
     });
 
 // ===== YouTube LIVE (FFmpeg RTMP) =====
-export const startYouTubeLive = (videoFile, logoFile, durationHours, autoReconnect, loopCount, cameraName, micName, sourceType) =>
-    axios.post(`${BASE_URL}/obs/live/start`, { videoFile, logoFile, durationHours, autoReconnect, loopCount, cameraName, micName, sourceType });
+export const startYouTubeLive = (videoFile, logoFile, durationHours, autoReconnect, loopCount, cameraName, micName, sourceType, transform = null, logoTransform = null, audioFile = null) =>
+    axios.post(`${BASE_URL}/obs/live/start`, { videoFile, logoFile, audioFile, durationHours, autoReconnect, loopCount, cameraName, micName, sourceType, transform, logoTransform });
 
 export const stopYouTubeLive = () =>
     axios.post(`${BASE_URL}/obs/live/stop`);

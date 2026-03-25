@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { getUploadedVideos, getCameraDevices } from '../services/obsService';
 
 export default function YouTubeLive({ 
@@ -18,31 +18,10 @@ export default function YouTubeLive({
   const [cameraName, setCameraName] = useState('');
   const [micName, setMicName] = useState('');
   const [duration, setDuration] = useState(24);
-  const [loopMode, setLoopMode] = useState('hours'); 
+  const [loopMode] = useState('hours'); 
   const [loopCount, setLoopCount] = useState(10);
   const [autoReconnect, setAutoReconnect] = useState(true);
   
-  useEffect(() => {
-    loadVideos();
-    loadCameras();
-  }, [uploadedVideoName]);
-
-  useEffect(() => {
-    if (isLive && liveStatus && liveStatus.sourceType) {
-      setSourceType(liveStatus.sourceType);
-      if (liveStatus.sourceType === 'camera') {
-        setCameraName(liveStatus.cameraName || '');
-        setMicName(liveStatus.micName || '');
-      } else {
-        setSelectedVideo(liveStatus.videoFile || '');
-      }
-    }
-  }, [isLive, liveStatus]);
-
-  useEffect(() => {
-    if (onSourceTypeChange) onSourceTypeChange(sourceType);
-  }, [sourceType]);
-
   const loadVideos = async () => {
     try {
       const res = await getUploadedVideos();
@@ -71,6 +50,29 @@ export default function YouTubeLive({
     } catch (err) { console.error(err); }
   };
 
+  useEffect(() => {
+    loadVideos();
+    loadCameras();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadedVideoName]);
+
+  useEffect(() => {
+    if (isLive && liveStatus && liveStatus.sourceType) {
+      setSourceType(liveStatus.sourceType);
+      if (liveStatus.sourceType === 'camera') {
+        setCameraName(liveStatus.cameraName || '');
+        setMicName(liveStatus.micName || '');
+      } else {
+        setSelectedVideo(liveStatus.videoFile || '');
+      }
+    }
+  }, [isLive, liveStatus]);
+
+  useEffect(() => {
+    if (onSourceTypeChange) onSourceTypeChange(sourceType);
+  }, [sourceType, onSourceTypeChange]);
+
+
   const handleVideoSelect = (videoName) => {
     setSelectedVideo(videoName);
     if (onPreview && sourceType === 'file') {
@@ -86,12 +88,16 @@ export default function YouTubeLive({
   const handleSourceAction = () => {
     onStartLive(
       sourceType === 'file' ? selectedVideo : null, 
-      duration, 
-      autoReconnect, 
-      loopCount, 
-      sourceType === 'camera' ? cameraName : null,
-      sourceType === 'camera' ? micName : null,
-      sourceType
+      null, // logoFile
+      null, // audioFile
+      sourceType,
+      null, // transform
+      null, // logoTransform
+      sourceType === 'camera' ? cameraName : 'Default',
+      sourceType === 'camera' ? micName : 'Default',
+      duration,
+      loopCount,
+      autoReconnect
     );
   };
 

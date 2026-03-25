@@ -116,7 +116,7 @@ async function connectOBS() {
         while (attempts < maxAttempts) {
             try {
                 await obs.connect(url, password);
-                console.log('✅ Connected to OBS successfully');
+                console.log('Connected to OBS successfully');
                 isConnected = true;
                 break;
             } catch (err) {
@@ -124,7 +124,7 @@ async function connectOBS() {
                 if (attempts === maxAttempts) {
                     throw new Error(`Failed to connect after ${maxAttempts} attempts: ${err.message}`);
                 }
-                console.log(`📡 [Attempt ${attempts}/${maxAttempts}] OBS not ready yet, retrying in 3s...`);
+                console.log(`[Attempt ${attempts}/${maxAttempts}] OBS not ready yet, retrying in 3s...`);
                 await new Promise(r => setTimeout(r, delay));
             }
         }

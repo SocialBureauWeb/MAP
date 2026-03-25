@@ -1,23 +1,6 @@
-// import { useState } from 'react';
-
-// export default function TextEditor({ onUpdate }) {
-//   const [text, setText] = useState('');
-
-//   return (
-//     <div>
-//       <h2>Overlay</h2>
-//       <input
-//         value={text}
-//         onChange={(e) => setText(e.target.value)}
-//       />
-//       <button onClick={() => onUpdate(text)}>Update</button>
-//     </div>
-//   );
-// }
-
 import { useState } from 'react';
 
-export function TextEditor({ onUpdate }) {
+export default function TextEditor({ onUpdate }) {
   const [text, setText] = useState('');
 
   const handleUpdate = () => {
@@ -56,5 +39,3 @@ export function TextEditor({ onUpdate }) {
     </div>
   );
 }
-
-export default TextEditor;
