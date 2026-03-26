@@ -26,16 +26,16 @@ export default function Dashboard() {
   const [stageLink, setStageLink] = useState(''); // Local preview (Stage)
   const [stagePlaying, setStagePlaying] = useState(false);
   const [timelineIsPlaying, setTimelineIsPlaying] = useState(false);
-  const [streamParams, setStreamParams] = useState({ 
-    transform: { crop: {L:0, R:0, T:0, B:0}, scale: 1, rotation: 0 },
+  const [streamParams, setStreamParams] = useState({
+    transform: { crop: { L: 0, R: 0, T: 0, B: 0 }, scale: 1, rotation: 0 },
     currentTime: 0,
     isPlaying: false
-  }); 
+  });
   const [activeTimelineLayers, setActiveTimelineLayers] = useState({});
   const [userScenes, setUserScenes] = useState(() => {
     const saved = localStorage.getItem('broadcaster_scenes');
-    return saved ? JSON.parse(saved) : Array.from({ length: 5 }, (_, i) => ({ 
-      id: i + 1, name: `SCENE ${i + 1}`, config: null 
+    return saved ? JSON.parse(saved) : Array.from({ length: 5 }, (_, i) => ({
+      id: i + 1, name: `SCENE ${i + 1}`, config: null
     }));
   });
 
@@ -90,17 +90,17 @@ export default function Dashboard() {
       } else {
         // Clear camera safely
         const cleanup = async () => {
-            if (playPromiseRef.current) {
-                try { await playPromiseRef.current; } catch (e) { /* ignore */ }
-            }
-            if (streamRef.current) {
-               streamRef.current.getTracks().forEach(track => track.stop());
-               streamRef.current = null;
-            }
-            if (videoRef.current) {
-              videoRef.current.srcObject = null;
-              try { videoRef.current.pause(); } catch (e) { /* ignore */ }
-            }
+          if (playPromiseRef.current) {
+            try { await playPromiseRef.current; } catch (e) { /* ignore */ }
+          }
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+          }
+          if (videoRef.current) {
+            videoRef.current.srcObject = null;
+            try { videoRef.current.pause(); } catch (e) { /* ignore */ }
+          }
         };
         cleanup();
       }
@@ -152,9 +152,9 @@ export default function Dashboard() {
 
       await new Promise(r => setTimeout(r, 600));
       setUploadStatus(sourceType === 'camera' ? '🎥 SIGNAL: Initializing camera broadcast...' : '🚀 SIGNAL: Initializing file broadcast...');
-      
+
       const finalLogo = logoFile || (showOverlay ? (uploadedLogoName || null) : null);
-      
+
       const res = await startYouTubeLive(videoFile, finalLogo, audioFile, durationHours, autoReconnect, loopCount, cameraName, micName, sourceType, transform, logoTransform);
       setIsLive(true);
       setLiveLink('http://localhost:5000/hls/stream.m3u8');
@@ -191,21 +191,21 @@ export default function Dashboard() {
     try {
       const params = customParams || streamParams;
       const actualShow = updatedShowOverlay !== null ? updatedShowOverlay : showOverlay;
-      
+
       setUploadStatus(`🔀 SWITCHING SCENE: ${params.sourceType.toUpperCase()}...`);
-      
+
       const res = await startYouTubeLive(
-        params.videoFile, 
-        actualShow ? (uploadedLogoName || null) : null, 
-        params.durationHours, 
-        params.autoReconnect, 
-        params.loopCount, 
-        params.cameraName, 
-        params.micName, 
+        params.videoFile,
+        actualShow ? (uploadedLogoName || null) : null,
+        params.durationHours,
+        params.autoReconnect,
+        params.loopCount,
+        params.cameraName,
+        params.micName,
         params.sourceType,
         params.transform
       );
-      
+
       setStreamParams(params);
       setIsLive(true);
       setUploadStatus(`✅ LIVE ON: ${res.data.message}`);
@@ -217,12 +217,12 @@ export default function Dashboard() {
 
   const saveToScene = (id) => {
     if (timelineClips.length === 0) {
-       setError("Timeline is empty. Please add media to the timeline before saving.");
-       return;
+      setError("Timeline is empty. Please add media to the timeline before saving.");
+      return;
     }
-    const newScenes = userScenes.map(s => s.id === id ? { 
-      ...s, 
-      config: { ...streamParams, showOverlay, uploadedLogoName, timelineClips, tracks } 
+    const newScenes = userScenes.map(s => s.id === id ? {
+      ...s,
+      config: { ...streamParams, showOverlay, uploadedLogoName, timelineClips, tracks }
     } : s);
     setUserScenes(newScenes);
     localStorage.setItem('broadcaster_scenes', JSON.stringify(newScenes));
@@ -234,8 +234,8 @@ export default function Dashboard() {
     if (!scene.config) {
       setTimelineClips([]);
       setTracks(['Graphics', 'Video', 'Audio']);
-      setStreamParams({ 
-        transform: { crop: {L:0, R:0, T:0, B:0}, scale: 1, rotation: 0 },
+      setStreamParams({
+        transform: { crop: { L: 0, R: 0, T: 0, B: 0 }, scale: 1, rotation: 0 },
         currentTime: 0,
         isPlaying: false
       });
@@ -243,9 +243,9 @@ export default function Dashboard() {
       setUploadStatus(`✨ NEW SCENE READY: Start adding media to timeline`);
       return;
     }
-    
+
     const { videoFile, sourceType, showOverlay: sceneOverlay, uploadedLogoName: sceneLogo, timelineClips: sceneTimeline, tracks: sceneTracks } = scene.config;
-    
+
     // Update local UI state
     setShowOverlay(sceneOverlay);
     if (sceneLogo) setUploadedLogoName(sceneLogo);
@@ -253,7 +253,7 @@ export default function Dashboard() {
     if (sourceType === 'file' && videoFile) setStageLink(`http://localhost:5000/uploads/${videoFile}`);
     if (sceneTimeline) setTimelineClips(sceneTimeline);
     if (sceneTracks) setTracks(sceneTracks);
-    
+
     // Switch live if already live
     if (isLive) {
       handleUpdateLive(sceneOverlay, scene.config);
@@ -398,16 +398,26 @@ export default function Dashboard() {
           >
             {/* Player Layer (Video) */}
             <div style={{ position: 'absolute', inset: 0 }}>
-              {selectedSourceType === 'camera' ? (
-                <video ref={videoRef} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-              ) : (
+              {isLive ? (
+                /* LIVE MONITOR (Program) */
                 <Player
-                  url={activeTimelineLayers.Video ? `http://localhost:5000/uploads/${activeTimelineLayers.Video.name}` : stageLink}
-                  transform={activeTimelineLayers.Video ? activeTimelineLayers.Video.transform : (streamParams?.transform)}
-                  currentTime={activeTimelineLayers.Video ? activeTimelineLayers.Video.currentTime : (streamParams?.currentTime)}
-                  playing={stagePlaying}
-                  isLive={false}
+                  url={liveLink}
+                  isLive={true}
+                  playing={true}
                 />
+              ) : (
+                /* PREVIEW MONITOR (Stage) */
+                selectedSourceType === 'camera' ? (
+                  <video ref={videoRef} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                ) : (
+                  <Player
+                    url={activeTimelineLayers.Video ? (activeTimelineLayers.Video.name === 'Live Camera' ? 'camera' : `http://localhost:5000/uploads/${activeTimelineLayers.Video.name}`) : stageLink}
+                    transform={activeTimelineLayers.Video ? activeTimelineLayers.Video.transform : (streamParams?.transform)}
+                    currentTime={activeTimelineLayers.Video ? activeTimelineLayers.Video.currentTime : (streamParams?.currentTime)}
+                    playing={stagePlaying}
+                    isLive={false}
+                  />
+                )
               )}
             </div>
 
@@ -424,28 +434,28 @@ export default function Dashboard() {
                   pointerEvents: 'none'
                 }}
               >
-                <img 
-                  src={`http://localhost:5000/uploads/${activeTimelineLayers.Graphics.name}`} 
-                  alt="Overlay" 
-                  style={{ 
-                    width: '100%', 
+                <img
+                  src={`http://localhost:5000/uploads/${activeTimelineLayers.Graphics.name}`}
+                  alt="Overlay"
+                  style={{
+                    width: '100%',
                     display: 'block',
                     clipPath: activeTimelineLayers.Graphics.transform?.crop ? `inset(${activeTimelineLayers.Graphics.transform.crop.T}px ${activeTimelineLayers.Graphics.transform.crop.R}px ${activeTimelineLayers.Graphics.transform.crop.B}px ${activeTimelineLayers.Graphics.transform.crop.L}px)` : 'none',
                     transform: `rotate(${activeTimelineLayers.Graphics.transform?.rotation || 0}deg)`
-                  }} 
+                  }}
                 />
               </div>
             )}
 
             {/* Audio Layer (Hidden Player) */}
             {activeTimelineLayers.Audio && (
-               <div style={{ display: 'none' }}>
-                  <Player 
-                    url={`http://localhost:5000/uploads/${activeTimelineLayers.Audio.name}`}
-                    currentTime={activeTimelineLayers.Audio.currentTime}
-                    playing={stagePlaying}
-                  />
-               </div>
+              <div style={{ display: 'none' }}>
+                <Player
+                  url={`http://localhost:5000/uploads/${activeTimelineLayers.Audio.name}`}
+                  currentTime={activeTimelineLayers.Audio.currentTime}
+                  playing={stagePlaying}
+                />
+              </div>
             )}
 
             {/* Draggable Logo Overlay (Legacy/Manual) */}
@@ -519,13 +529,13 @@ export default function Dashboard() {
                     const audioClip = activeTimelineLayers.Audio;
                     if (videoClip) {
                       handleStartLive(
-                        videoClip.name, 
+                        videoClip.name,
                         graphicsClip ? graphicsClip.name : null,
                         audioClip ? audioClip.name : null,
-                        videoClip.name === 'Live Camera' ? 'camera' : 'file', 
+                        videoClip.name === 'Live Camera' ? 'camera' : 'file',
                         videoClip.transform,
                         graphicsClip ? graphicsClip.transform : null,
-                        'Default', 'Default', 
+                        'Default', 'Default',
                         24, 1, true
                       );
                     }
@@ -563,7 +573,7 @@ export default function Dashboard() {
               onPlayheadUpdate={(layers, isPlaying) => {
                 setActiveTimelineLayers(layers);
                 setStagePlaying(isPlaying);
-                
+
                 if (layers.Video) {
                   const v = layers.Video;
                   setStreamParams(prev => ({ ...prev, transform: v.transform, currentTime: v.currentTime }));

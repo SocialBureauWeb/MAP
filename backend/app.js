@@ -48,8 +48,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded files statically
-app.use('/uploads', express.static(path.join(__dirname, '../storage/uploads')));
-app.use('/hls', express.static(path.join(__dirname, '../storage/hls')));
+app.use('/uploads', express.static(path.join(__dirname, 'storage/uploads')));
+app.use('/hls', express.static(path.join(__dirname, 'storage/hls')));
 
 // ===== CONNECT TO OBS =====
 connectOBS().catch(err => {

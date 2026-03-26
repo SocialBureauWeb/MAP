@@ -72,14 +72,13 @@ const liveStreamController = {
             try { exec('taskkill /F /IM ffmpeg.exe /T'); } catch(e){}
             await new Promise(r => setTimeout(r, 1000));
 
-            const youtubeRtmp = `${rtmpUrl}/${streamKey}`;
-            const hlsPlaylist = path.join(__dirname, '../../storage/hls/stream.m3u8').replace(/\\/g, '/');
+            const uploadDir = path.join(__dirname, '../storage/uploads');
+            const hlsPlaylist = path.join(__dirname, '../storage/hls/stream.m3u8').replace(/\\/g, '/');
             const hlsDir = path.dirname(hlsPlaylist);
             if (!fs.existsSync(hlsDir)) fs.mkdirSync(hlsDir, { recursive: true });
 
             // ── BUILD FFmpeg ARGS ───────────────────────────────────────────
             let args = ['-hide_banner', '-loglevel', 'info'];
-            const uploadDir = path.join(__dirname, '../../storage/uploads');
 
             // 1. MAIN INPUT
             if (sourceType === 'camera') {
@@ -189,8 +188,12 @@ const liveStreamController = {
             res.json({ success: true, message: '🔴 Broadcast Active', sourceType });
 
         } catch (err) {
-            console.error('Signal error:', err);
-            res.status(500).json({ error: err.message });
+            console.error('⛔ Critical Signal Error:', err);
+            res.status(500).json({ 
+                error: err.message || 'Internal server error',
+                details: err.stack,
+                path: req.path
+            });
         }
     },
 

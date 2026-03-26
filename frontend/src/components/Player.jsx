@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import Hls from 'hls.js';
 
 export default function Player({ url, transform, currentTime, playing, isLive }) {
   const videoRef = useRef(null);
+  const hlsRef = useRef(null);
   const [displayTime, setDisplayTime] = useState('00:00:00');
   const [duration, setDuration] = useState(0);
   const [ready, setReady] = useState(false);
@@ -16,18 +18,45 @@ export default function Player({ url, transform, currentTime, playing, isLive })
     return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   };
 
-  // ── Load new URL ─────────────────────────────────────────────────────────
+  // ── Load new URL (Support HLS) ───────────────────────────────────────────
   useEffect(() => {
     const vid = videoRef.current;
     if (!vid) return;
+
+    if (hlsRef.current) {
+       hlsRef.current.destroy();
+       hlsRef.current = null;
+    }
+
     setReady(false);
+
     if (url) {
-      vid.src = url;
-      vid.load();
+      if (url.endsWith('.m3u8')) {
+        if (Hls.isSupported()) {
+          const hls = new Hls();
+          hls.loadSource(url);
+          hls.attachMedia(vid);
+          hlsRef.current = hls;
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+             setReady(true);
+             if (playing) vid.play().catch(() => {});
+          });
+        } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+          vid.src = url;
+          vid.load();
+        }
+      } else {
+        vid.src = url;
+        vid.load();
+      }
     } else {
       vid.removeAttribute('src');
       vid.load();
     }
+
+    return () => {
+       if (hlsRef.current) hlsRef.current.destroy();
+    };
   }, [url]);
 
   // ── Play / Pause — safe, promise-aware ──────────────────────────────────

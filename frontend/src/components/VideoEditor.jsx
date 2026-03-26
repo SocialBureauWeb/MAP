@@ -108,11 +108,11 @@ function VideoEditor({
   // Sync preview with playhead — deferred to avoid setState-during-render
   useEffect(() => {
     if (!onPlayheadUpdate) return;
-    
+
     // Find active clips for EACH track
     const layers = {};
     tracks.forEach(t => {
-      const clip = timelineClips.find(c => 
+      const clip = timelineClips.find(c =>
         c.track === t && playheadPos >= c.start && playheadPos < (c.start + c.duration)
       );
       if (clip) {
@@ -473,6 +473,24 @@ function VideoEditor({
                 <span style={{ fontSize: '10px', fontWeight: '700', color: '#e4e4e7', letterSpacing: '0.5px' }}>
                   {track === 'Video' ? '🎬' : track === 'Audio' ? '🎵' : '🎨'} {track.toUpperCase()}
                 </span>
+                {track === 'Video' && (
+                    <button
+                      onClick={() => {
+                        const newClip = {
+                          id: Date.now(),
+                          name: 'Live Camera',
+                          start: playheadPos,
+                          duration: 300, // 10 seconds default
+                          originalDuration: 300,
+                          color: '#3b82f6',
+                          track: track,
+                          type: 'camera'
+                        };
+                        setTimelineClips([...timelineClips, newClip]);
+                      }}
+                      style={{ backgroundColor: '#1d4ed8', color: 'white', border: 'none', padding: '2px 6px', fontSize: '9px', cursor: 'pointer', borderRadius: '3px', fontWeight: '700' }}
+                    >+ CAMERA</button>
+                  )}
                 <button
                   onClick={() => { setActiveUploadTrack(track); fileInputRef.current.click(); }}
                   style={{ backgroundColor: 'transparent', color: '#60a5fa', border: '1px solid #3f3f46', padding: '2px 6px', fontSize: '9px', cursor: 'pointer', borderRadius: '3px', fontWeight: '600' }}
